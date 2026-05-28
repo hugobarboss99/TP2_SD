@@ -131,7 +131,7 @@ python3 run_tests.py C4 --verbose
 | C3 — 10 MB \| bloco 4 KB \| 2 peers | ✓ PASSOU | 0.86s |
 | C4 — 10 MB \| bloco 1 KB \| 4 peers | ✓ PASSOU | 3.25s |
 
-> **Nota sobre B4:** o tempo elevado (19s) ocorre por acúmulo de carga de I/O após 7 cenários consecutivos. Executado isoladamente (`python3 run_tests.py B4`), completa em ~0.2s.
+> **Nota sobre B4:** o tempo elevado (19s) ocorre por acúmulo de sockets em estado `TIME_WAIT` após os cenários anteriores, o que faz os leechers falharem na primeira tentativa de conexão e aguardarem o backoff de reconexão. Executado isoladamente (`python3 run_tests.py B4`), completa em ~0.2s.
 
 ---
 
