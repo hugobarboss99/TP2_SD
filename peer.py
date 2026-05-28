@@ -182,7 +182,10 @@ class Peer:
             block_id = header["block_id"]
             if not self.bm.has_block(block_id):
                 if self.bm.write_block(block_id, data):
-                    self._broadcast(build_have(block_id))
+                    # exclui a conexão de origem: evita que a thread de recebimento
+                    # tente adquirir o lock de envio da mesma conexão enquanto o
+                    # download loop pode estar bloqueado nela (deadlock de socket)
+                    self._broadcast(build_have(block_id), exclude=conn)
                     owned = self.bm.owned_count()
                     total = self.bm.total_blocks
                     print(f"[PEER] Progresso: {owned}/{total} blocos ({100*owned//total}%)")
@@ -196,6 +199,7 @@ class Peer:
     def _download_loop(self):
         in_flight: set[int] = set()
         iteration = 0
+        MAX_IN_FLIGHT = 200  # evita saturar o buffer de socket com requests demais
 
         while not self.bm.is_complete():
             iteration += 1
@@ -214,6 +218,8 @@ class Peer:
 
             sent_any = False
             for block_id in sorted(to_request):
+                if len(in_flight) >= MAX_IN_FLIGHT:
+                    break
                 for conn in conns:
                     if conn.remote_map[block_id]:
                         if conn.send(build_request(block_id)):
