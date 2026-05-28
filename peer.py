@@ -76,6 +76,7 @@ class Peer:
         # assembly roda na main thread; _all_received sinaliza que os blocos chegaram
         self._all_received = threading.Event()
         self._done = threading.Event()
+        self._blocks_from: dict[str, int] = {}  # addr → nº de blocos recebidos
 
         if source_file:
             self.bm.mark_all_owned(source_file)
@@ -182,6 +183,8 @@ class Peer:
             block_id = header["block_id"]
             if not self.bm.has_block(block_id):
                 if self.bm.write_block(block_id, data):
+                    src = f"{conn.addr[0]}:{conn.addr[1]}"
+                    self._blocks_from[src] = self._blocks_from.get(src, 0) + 1
                     # exclui a conexão de origem: evita que a thread de recebimento
                     # tente adquirir o lock de envio da mesma conexão enquanto o
                     # download loop pode estar bloqueado nela (deadlock de socket)
@@ -233,6 +236,10 @@ class Peer:
 
     def _assemble(self):
         print(f"\n[PEER] Todos os {self.bm.total_blocks} blocos recebidos! Remontando arquivo...")
+        print("[PEER] Blocos recebidos por fonte:")
+        for addr, count in sorted(self._blocks_from.items(), key=lambda x: -x[1]):
+            pct = 100 * count // self.bm.total_blocks
+            print(f"  {addr}  →  {count} blocos ({pct}%)")
         output = self.bm.assemble()
         ok = verify_file(output, self.bm.sha256)
         if ok:
